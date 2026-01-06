@@ -7,10 +7,10 @@ import (
 	"os"
 	"path/filepath"
 
-	"gitlite/internal/auth"
-	"gitlite/internal/git"
-	"gitlite/internal/repo"
-	"gitlite/internal/tui"
+	"github.com/touken928/gitlite/internal/auth"
+	"github.com/touken928/gitlite/internal/git"
+	"github.com/touken928/gitlite/internal/repo"
+	"github.com/touken928/gitlite/internal/tui"
 
 	"github.com/gliderlabs/ssh"
 	gossh "golang.org/x/crypto/ssh"

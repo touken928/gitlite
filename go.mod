@@ -1,4 +1,4 @@
-module gitlite
+module github.com/touken928/gitlite
 
 go 1.21
 

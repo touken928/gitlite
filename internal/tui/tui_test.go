@@ -3,8 +3,8 @@ package tui
 import (
 	"testing"
 
-	"gitlite/internal/auth"
-	"gitlite/internal/repo"
+	"github.com/touken928/gitlite/internal/auth"
+	"github.com/touken928/gitlite/internal/repo"
 )
 
 func TestNewTUI(t *testing.T) {

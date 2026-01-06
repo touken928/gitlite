@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"sync"
 
-	"gitlite/internal/storage"
+	"github.com/touken928/gitlite/internal/storage"
 
 	"golang.org/x/crypto/ssh"
 )

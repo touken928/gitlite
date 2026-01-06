@@ -5,8 +5,8 @@ import (
 	"io"
 	"strings"
 
-	"gitlite/internal/auth"
-	"gitlite/internal/repo"
+	"github.com/touken928/gitlite/internal/auth"
+	"github.com/touken928/gitlite/internal/repo"
 
 	"github.com/gliderlabs/ssh"
 	gossh "golang.org/x/crypto/ssh"

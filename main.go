@@ -7,7 +7,7 @@ import (
 	"strconv"
 	"syscall"
 
-	"gitlite/internal/server"
+	"github.com/touken928/gitlite/internal/server"
 )
 
 func getEnv(key, defaultValue string) string {
