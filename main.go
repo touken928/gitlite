@@ -1,12 +1,14 @@
 package main
 
 import (
-	"log"
 	"os"
 	"os/signal"
 	"strconv"
 	"syscall"
 
+	"go.uber.org/zap"
+
+	"github.com/touken928/gitlite/internal/logger"
 	"github.com/touken928/gitlite/internal/server"
 )
 
@@ -27,27 +29,31 @@ func getEnvInt(key string, defaultValue int) int {
 }
 
 func main() {
-	// 从环境变量读取配置，支持命令行参数（可选）
+	// Initialize logger
+	logger.Init()
+	defer logger.Sync()
+
+	// Read config from environment variables
 	port := getEnv("GITLITE_PORT", "2222")
 	dataPath := getEnv("GITLITE_DATA", "data")
 
 	srv, err := server.New(port, dataPath)
 	if err != nil {
-		log.Fatalf("创建服务器失败: %v", err)
+		logger.Get().Fatal("Failed to create server", zap.Error(err))
 	}
 
 	go func() {
 		if err := srv.Start(); err != nil {
-			log.Fatalf("服务器启动失败: %v", err)
+			logger.Get().Fatal("Failed to start server", zap.Error(err))
 		}
 	}()
 
-	log.Printf("Git 服务器已启动，监听端口 %s", port)
+	logger.Get().Info("Git server started, listening on port", zap.String("port", port))
 
 	quit := make(chan os.Signal, 1)
 	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
 	<-quit
 
-	log.Println("正在关闭服务器...")
+	logger.Get().Info("Shutting down server...")
 	srv.Stop()
 }

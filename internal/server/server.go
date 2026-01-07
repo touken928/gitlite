@@ -3,12 +3,14 @@ package server
 import (
 	"fmt"
 	"io"
-	"log"
 	"os"
 	"path/filepath"
 
+	"go.uber.org/zap"
+
 	"github.com/touken928/gitlite/internal/auth"
 	"github.com/touken928/gitlite/internal/git"
+	"github.com/touken928/gitlite/internal/logger"
 	"github.com/touken928/gitlite/internal/repo"
 	"github.com/touken928/gitlite/internal/tui"
 
@@ -34,30 +36,30 @@ func New(port, dataPath string) (*Server, error) {
 	}
 	s.tui = tui.New(s.authMgr, s.repoMgr, dataPath)
 
-	// 确保数据目录存在
+	// Ensure data directory exists
 	if err := os.MkdirAll(filepath.Join(dataPath, "repos"), 0755); err != nil {
 		return nil, err
 	}
 
-	// 加载或生成主机密钥
+	// Load or generate host key
 	hostKey, err := s.loadOrGenerateHostKey()
 	if err != nil {
 		return nil, err
 	}
 
-	// 加载管理员公钥
+	// Load admin public key
 	if err := s.loadAdminKey(); err != nil {
-		log.Printf("警告: 未找到管理员公钥，请创建 %s/admin.pub", dataPath)
+		logger.Get().Warn("Admin public key not found, please create "+dataPath+"/admin.pub")
 	}
 
-	// 加载持久化的用户数据
+	// Load persisted user data
 	if err := s.authMgr.LoadFromFile(filepath.Join(dataPath, "users.json")); err != nil {
-		log.Printf("警告: 加载用户数据失败: %v", err)
+		logger.Get().Warn("Failed to load user data", zap.Error(err))
 	}
 
-	// 加载持久化的仓库权限数据
+	// Load persisted repo permission data
 	if err := s.repoMgr.LoadFromFile(filepath.Join(dataPath, "repos.json")); err != nil {
-		log.Printf("警告: 加载仓库权限数据失败: %v", err)
+		logger.Get().Warn("Failed to load repo permission data", zap.Error(err))
 	}
 
 	s.sshSrv = &ssh.Server{
@@ -79,14 +81,14 @@ func (s *Server) Start() error {
 }
 
 func (s *Server) Stop() {
-	// 保存用户数据
+	// Save user data
 	if err := s.authMgr.SaveToFile(filepath.Join(s.dataPath, "users.json")); err != nil {
-		log.Printf("保存用户数据失败: %v", err)
+		logger.Get().Error("Failed to save user data", zap.Error(err))
 	}
 
-	// 保存仓库权限数据
+	// Save repo permission data
 	if err := s.repoMgr.SaveToFile(filepath.Join(s.dataPath, "repos.json")); err != nil {
-		log.Printf("保存仓库权限数据失败: %v", err)
+		logger.Get().Error("Failed to save repo permission data", zap.Error(err))
 	}
 
 	s.sshSrv.Close()
@@ -99,7 +101,7 @@ func (s *Server) loadOrGenerateHostKey() (ssh.Signer, error) {
 		if err := os.MkdirAll(s.dataPath, 0755); err != nil {
 			return nil, err
 		}
-		log.Printf("生成新的主机密钥: %s", keyPath)
+		logger.Get().Info("Generating new host key", zap.String("path", keyPath))
 		return generateHostKey(keyPath)
 	}
 
@@ -123,7 +125,7 @@ func (s *Server) loadAdminKey() error {
 	}
 
 	s.authMgr.SetAdminKey(pubKey)
-	log.Printf("已加载管理员公钥")
+	logger.Get().Info("Admin public key loaded")
 	return nil
 }
 
@@ -133,7 +135,7 @@ func (s *Server) handlePublicKey(ctx ssh.Context, key ssh.PublicKey) bool {
 	ctx.SetValue("user", user)
 	ctx.SetValue("userType", userType)
 
-	// 管理员和已知用户允许连接，未知用户也允许（可能是 guest 访问）
+	// Admin and known users are allowed to connect, unknown users are also allowed (guest access)
 	return true
 }
 
@@ -143,10 +145,10 @@ func (s *Server) handleSession(sess ssh.Session) {
 
 	rawCmd := sess.RawCommand()
 
-	// 无命令 = 管理员 TUI 登录
+	// No command = admin TUI login
 	if rawCmd == "" {
 		if userType != auth.UserTypeAdmin {
-			io.WriteString(sess, "拒绝访问: 仅管理员可登录\r\n")
+			io.WriteString(sess, "Access denied: admin only\r\n")
 			sess.Exit(1)
 			return
 		}
@@ -154,16 +156,16 @@ func (s *Server) handleSession(sess ssh.Session) {
 		return
 	}
 
-	// 有命令 = Git 操作
+	// Has command = Git operation
 	if userType == auth.UserTypeAdmin {
-		io.WriteString(sess, "拒绝访问: 管理员不能执行 Git 操作\r\n")
+		io.WriteString(sess, "Access denied: admins cannot perform Git operations\r\n")
 		sess.Exit(1)
 		return
 	}
 
 	gitCmd, err := git.ParseCommand(rawCmd)
 	if err != nil {
-		io.WriteString(sess, fmt.Sprintf("错误: %v\r\n", err))
+		io.WriteString(sess, fmt.Sprintf("Error: %v\r\n", err))
 		sess.Exit(1)
 		return
 	}
@@ -174,20 +176,20 @@ func (s *Server) handleSession(sess ssh.Session) {
 	}
 
 	if !s.repoMgr.CheckPermission(gitCmd.RepoPath, userName, gitCmd.IsWrite) {
-		io.WriteString(sess, "拒绝访问: 权限不足\r\n")
+		io.WriteString(sess, "Access denied: insufficient permissions\r\n")
 		sess.Exit(1)
 		return
 	}
 
 	repoFullPath := s.repoMgr.GetRepoPath(gitCmd.RepoPath)
 	if _, err := os.Stat(repoFullPath); os.IsNotExist(err) {
-		io.WriteString(sess, "错误: 仓库不存在\r\n")
+		io.WriteString(sess, "Error: repository does not exist\r\n")
 		sess.Exit(1)
 		return
 	}
 
 	if err := git.Execute(sess, gitCmd, repoFullPath); err != nil {
-		log.Printf("Git 执行错误: %v", err)
+		logger.Get().Error("Git execution error", zap.Error(err))
 		sess.Exit(1)
 		return
 	}
