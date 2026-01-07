@@ -43,7 +43,7 @@ func (m *Manager) Create(name string) error {
 	defer m.mu.Unlock()
 
 	if _, exists := m.repos[name]; exists {
-		return fmt.Errorf("仓库 %s 已存在", name)
+		return fmt.Errorf("repository %s already exists", name)
 	}
 
 	repoPath := filepath.Join(m.basePath, "repos", name+".git")
@@ -55,7 +55,7 @@ func (m *Manager) Create(name string) error {
 	cmd.Dir = repoPath
 	if err := cmd.Run(); err != nil {
 		os.RemoveAll(repoPath)
-		return fmt.Errorf("初始化仓库失败: %v", err)
+		return fmt.Errorf("failed to init repository: %v", err)
 	}
 
 	m.repos[name] = &Repository{
@@ -72,7 +72,7 @@ func (m *Manager) Delete(name string) error {
 
 	repo, exists := m.repos[name]
 	if !exists {
-		return fmt.Errorf("仓库 %s 不存在", name)
+		return fmt.Errorf("repository %s does not exist", name)
 	}
 
 	if err := os.RemoveAll(repo.Path); err != nil {
@@ -107,7 +107,7 @@ func (m *Manager) AddUser(repoName, userName string, perm Permission) error {
 
 	repo, exists := m.repos[repoName]
 	if !exists {
-		return fmt.Errorf("仓库 %s 不存在", repoName)
+		return fmt.Errorf("repository %s does not exist", repoName)
 	}
 	repo.Users[userName] = perm
 	return nil
@@ -119,7 +119,7 @@ func (m *Manager) RemoveUser(repoName, userName string) error {
 
 	repo, exists := m.repos[repoName]
 	if !exists {
-		return fmt.Errorf("仓库 %s 不存在", repoName)
+		return fmt.Errorf("repository %s does not exist", repoName)
 	}
 	delete(repo.Users, userName)
 	return nil

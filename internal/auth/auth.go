@@ -26,7 +26,7 @@ func (u *User) AddKey(key ssh.PublicKey) error {
 	fingerprint := ssh.FingerprintSHA256(key)
 	for _, k := range u.Keys {
 		if ssh.FingerprintSHA256(k) == fingerprint {
-			return fmt.Errorf("密钥已存在")
+			return fmt.Errorf("key already exists")
 		}
 	}
 	u.Keys = append(u.Keys, key)
@@ -95,10 +95,10 @@ func (m *Manager) CreateUser(name string) error {
 	defer m.mu.Unlock()
 
 	if name == "admin" {
-		return fmt.Errorf("不能创建名为 admin 的用户")
+		return fmt.Errorf("cannot create user named 'admin'")
 	}
 	if _, exists := m.users[name]; exists {
-		return fmt.Errorf("用户 %s 已存在", name)
+		return fmt.Errorf("user %s already exists", name)
 	}
 
 	m.users[name] = &User{Name: name, Keys: []ssh.PublicKey{}}
@@ -110,7 +110,7 @@ func (m *Manager) DeleteUser(name string) error {
 	defer m.mu.Unlock()
 
 	if _, exists := m.users[name]; !exists {
-		return fmt.Errorf("用户 %s 不存在", name)
+		return fmt.Errorf("user %s does not exist", name)
 	}
 	delete(m.users, name)
 	return nil
@@ -139,7 +139,7 @@ func (m *Manager) AddKeyToUser(userName string, key ssh.PublicKey) error {
 
 	user, exists := m.users[userName]
 	if !exists {
-		return fmt.Errorf("用户 %s 不存在", userName)
+		return fmt.Errorf("user %s does not exist", userName)
 	}
 	return user.AddKey(key)
 }
@@ -150,10 +150,10 @@ func (m *Manager) RemoveKeyFromUser(userName, fingerprint string) error {
 
 	user, exists := m.users[userName]
 	if !exists {
-		return fmt.Errorf("用户 %s 不存在", userName)
+		return fmt.Errorf("user %s does not exist", userName)
 	}
 	if !user.RemoveKey(fingerprint) {
-		return fmt.Errorf("密钥不存在")
+		return fmt.Errorf("key not found")
 	}
 	return nil
 }

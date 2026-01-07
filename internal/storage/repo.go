@@ -20,7 +20,7 @@ func LoadRepoPermissions(path string) ([]RepoPermission, error) {
 		if os.IsNotExist(err) {
 			return nil, nil // No data file yet
 		}
-		return nil, fmt.Errorf("读取仓库权限数据失败: %v", err)
+		return nil, fmt.Errorf("failed to read repo permission data: %v", err)
 	}
 
 	if len(data) == 0 {
@@ -29,7 +29,7 @@ func LoadRepoPermissions(path string) ([]RepoPermission, error) {
 
 	var repos []RepoPermission
 	if err := json.Unmarshal(data, &repos); err != nil {
-		return nil, fmt.Errorf("解析仓库权限数据失败: %v", err)
+		return nil, fmt.Errorf("failed to parse repo permission data: %v", err)
 	}
 
 	return repos, nil
@@ -39,11 +39,11 @@ func LoadRepoPermissions(path string) ([]RepoPermission, error) {
 func SaveRepoPermissions(path string, repos []RepoPermission) error {
 	jsonData, err := json.MarshalIndent(repos, "", "  ")
 	if err != nil {
-		return fmt.Errorf("序列化仓库权限数据失败: %v", err)
+		return fmt.Errorf("failed to serialize repo permission data: %v", err)
 	}
 
 	if err := os.WriteFile(path, jsonData, 0644); err != nil {
-		return fmt.Errorf("保存仓库权限数据失败: %v", err)
+		return fmt.Errorf("failed to save repo permission data: %v", err)
 	}
 
 	return nil

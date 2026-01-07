@@ -29,12 +29,12 @@ type Command struct {
 func ParseCommand(rawCmd string) (*Command, error) {
 	parts := strings.SplitN(strings.TrimSpace(rawCmd), " ", 2)
 	if len(parts) != 2 {
-		return nil, fmt.Errorf("无效的命令格式")
+		return nil, fmt.Errorf("invalid command format")
 	}
 
 	cmd := parts[0]
 	if !allowedCommands[cmd] {
-		return nil, fmt.Errorf("不允许的命令: %s", cmd)
+		return nil, fmt.Errorf("command not allowed: %s", cmd)
 	}
 
 	// 解析仓库路径，移除引号
@@ -42,7 +42,7 @@ func ParseCommand(rawCmd string) (*Command, error) {
 	repoPath = strings.TrimPrefix(repoPath, "/")
 
 	if !repoPathRegex.MatchString(repoPath) {
-		return nil, fmt.Errorf("无效的仓库路径: %s", repoPath)
+		return nil, fmt.Errorf("invalid repo path: %s", repoPath)
 	}
 
 	return &Command{
@@ -59,7 +59,7 @@ func Execute(sess ssh.Session, gitCmd *Command, repoFullPath string) error {
 	cmd.Stderr = sess.Stderr()
 
 	if err := cmd.Run(); err != nil {
-		return fmt.Errorf("Git 命令执行失败: %v", err)
+		return fmt.Errorf("git command failed: %v", err)
 	}
 	return nil
 }

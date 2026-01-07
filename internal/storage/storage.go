@@ -21,7 +21,7 @@ func LoadUsers(path string) ([]User, error) {
 		if os.IsNotExist(err) {
 			return nil, nil // No data file yet
 		}
-		return nil, fmt.Errorf("读取用户数据失败: %v", err)
+		return nil, fmt.Errorf("failed to read user data: %v", err)
 	}
 
 	if len(data) == 0 {
@@ -30,7 +30,7 @@ func LoadUsers(path string) ([]User, error) {
 
 	var users []User
 	if err := json.Unmarshal(data, &users); err != nil {
-		return nil, fmt.Errorf("解析用户数据失败: %v", err)
+		return nil, fmt.Errorf("failed to parse user data: %v", err)
 	}
 
 	return users, nil
@@ -40,11 +40,11 @@ func LoadUsers(path string) ([]User, error) {
 func SaveUsers(path string, users []User) error {
 	jsonData, err := json.MarshalIndent(users, "", "  ")
 	if err != nil {
-		return fmt.Errorf("序列化用户数据失败: %v", err)
+		return fmt.Errorf("failed to serialize user data: %v", err)
 	}
 
 	if err := os.WriteFile(path, jsonData, 0644); err != nil {
-		return fmt.Errorf("保存用户数据失败: %v", err)
+		return fmt.Errorf("failed to save user data: %v", err)
 	}
 
 	return nil
