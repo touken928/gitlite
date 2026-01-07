@@ -9,78 +9,62 @@ import (
 	"golang.org/x/crypto/ssh"
 )
 
-type UserType int
-
-const (
-	UserTypeUnknown UserType = iota
-	UserTypeAdmin
-	UserTypeNormal
-)
-
-type User struct {
-	Name string
-	Keys []ssh.PublicKey
+// AuthManager defines the interface for user authentication management
+type AuthManager interface {
+	// Authenticate validates an SSH public key and returns the user and their type
+	Authenticate(key ssh.PublicKey) (*User, UserType)
+	// CreateUser creates a new user with the given name
+	CreateUser(name string) error
+	// DeleteUser removes a user by name
+	DeleteUser(name string) error
+	// GetUser returns a user by name, or nil if not found
+	GetUser(name string) *User
+	// ListUsers returns all users in the system
+	ListUsers() []*User
+	// AddKeyToUser adds an SSH key to a user
+	AddKeyToUser(userName string, key ssh.PublicKey) error
+	// RemoveKeyFromUser removes an SSH key from a user by fingerprint
+	RemoveKeyFromUser(userName, fingerprint string) error
+	// SaveToFile persists user data to a JSON file
+	SaveToFile(path string) error
+	// LoadFromFile loads user data from a JSON file
+	LoadFromFile(path string) error
 }
 
-func (u *User) AddKey(key ssh.PublicKey) error {
-	fingerprint := ssh.FingerprintSHA256(key)
-	for _, k := range u.Keys {
-		if ssh.FingerprintSHA256(k) == fingerprint {
-			return fmt.Errorf("key already exists")
-		}
-	}
-	u.Keys = append(u.Keys, key)
-	return nil
-}
-
-func (u *User) RemoveKey(fingerprint string) bool {
-	for i, k := range u.Keys {
-		if ssh.FingerprintSHA256(k) == fingerprint {
-			u.Keys = append(u.Keys[:i], u.Keys[i+1:]...)
-			return true
-		}
-	}
-	return false
-}
-
-func (u *User) HasKey(key ssh.PublicKey) bool {
-	fingerprint := ssh.FingerprintSHA256(key)
-	for _, k := range u.Keys {
-		if ssh.FingerprintSHA256(k) == fingerprint {
-			return true
-		}
-	}
-	return false
-}
-
+// Manager handles user authentication and provides thread-safe operations
 type Manager struct {
 	mu       sync.RWMutex
-	adminKey ssh.PublicKey
-	users    map[string]*User // name -> User
+	adminKey ssh.PublicKey      // SSH public key for admin authentication
+	users    map[string]*User   // Map of username to User struct
 }
 
+var _ AuthManager = (*Manager)(nil)
+
+// NewManager creates a new Manager instance
 func NewManager() *Manager {
 	return &Manager{
 		users: make(map[string]*User),
 	}
 }
 
+// SetAdminKey sets the administrator's SSH public key
 func (m *Manager) SetAdminKey(key ssh.PublicKey) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	m.adminKey = key
 }
 
+// Authenticate validates an SSH public key and returns the corresponding user and type
 func (m *Manager) Authenticate(key ssh.PublicKey) (*User, UserType) {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
 
-	// 检查是否为管理员
+	// Check if the key matches the admin key
 	if m.adminKey != nil && ssh.FingerprintSHA256(key) == ssh.FingerprintSHA256(m.adminKey) {
 		return &User{Name: "admin"}, UserTypeAdmin
 	}
 
-	// 检查是否为普通用户
+	// Check if the key belongs to any registered user
 	for _, user := range m.users {
 		if user.HasKey(key) {
 			return user, UserTypeNormal
@@ -90,6 +74,7 @@ func (m *Manager) Authenticate(key ssh.PublicKey) (*User, UserType) {
 	return nil, UserTypeUnknown
 }
 
+// CreateUser creates a new user with the given name
 func (m *Manager) CreateUser(name string) error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
@@ -105,6 +90,7 @@ func (m *Manager) CreateUser(name string) error {
 	return nil
 }
 
+// DeleteUser removes a user by name
 func (m *Manager) DeleteUser(name string) error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
@@ -116,12 +102,14 @@ func (m *Manager) DeleteUser(name string) error {
 	return nil
 }
 
+// GetUser returns a user by name, or nil if not found
 func (m *Manager) GetUser(name string) *User {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
 	return m.users[name]
 }
 
+// ListUsers returns all users in the system
 func (m *Manager) ListUsers() []*User {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
@@ -133,6 +121,7 @@ func (m *Manager) ListUsers() []*User {
 	return users
 }
 
+// AddKeyToUser adds an SSH public key to a user
 func (m *Manager) AddKeyToUser(userName string, key ssh.PublicKey) error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
@@ -144,6 +133,7 @@ func (m *Manager) AddKeyToUser(userName string, key ssh.PublicKey) error {
 	return user.AddKey(key)
 }
 
+// RemoveKeyFromUser removes an SSH public key from a user by fingerprint
 func (m *Manager) RemoveKeyFromUser(userName, fingerprint string) error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
@@ -158,6 +148,7 @@ func (m *Manager) RemoveKeyFromUser(userName, fingerprint string) error {
 	return nil
 }
 
+// SaveToFile persists user data to a JSON file
 func (m *Manager) SaveToFile(path string) error {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
@@ -173,6 +164,7 @@ func (m *Manager) SaveToFile(path string) error {
 	return storage.SaveUsers(path, users)
 }
 
+// LoadFromFile loads user data from a JSON file
 func (m *Manager) LoadFromFile(path string) error {
 	userData, err := storage.LoadUsers(path)
 	if err != nil {

@@ -8,18 +8,18 @@ import (
 	"golang.org/x/crypto/ssh"
 )
 
-// User represents a user with SSH keys for persistence
+// User represents a user with SSH keys for JSON persistence
 type User struct {
-	Name string   `json:"name"`
-	Keys []string `json:"keys"` // SSH public key strings
+	Name string   `json:"name"` // Unique username
+	Keys []string `json:"keys"` // SSH public key strings in authorized_keys format
 }
 
-// LoadUsers loads users from a JSON file
+// LoadUsers loads user data from a JSON file
 func LoadUsers(path string) ([]User, error) {
 	data, err := os.ReadFile(path)
 	if err != nil {
 		if os.IsNotExist(err) {
-			return nil, nil // No data file yet
+			return nil, nil // No data file exists yet
 		}
 		return nil, fmt.Errorf("failed to read user data: %v", err)
 	}
@@ -36,7 +36,7 @@ func LoadUsers(path string) ([]User, error) {
 	return users, nil
 }
 
-// SaveUsers saves users to a JSON file
+// SaveUsers persists user data to a JSON file
 func SaveUsers(path string, users []User) error {
 	jsonData, err := json.MarshalIndent(users, "", "  ")
 	if err != nil {
@@ -50,7 +50,7 @@ func SaveUsers(path string, users []User) error {
 	return nil
 }
 
-// LoadSSHKeys loads SSH public keys from key strings
+// LoadSSHKeys converts SSH public key strings to ssh.PublicKey objects
 func LoadSSHKeys(keyStrs []string) []ssh.PublicKey {
 	keys := make([]ssh.PublicKey, 0, len(keyStrs))
 	for _, keyStr := range keyStrs {
@@ -63,11 +63,54 @@ func LoadSSHKeys(keyStrs []string) []ssh.PublicKey {
 	return keys
 }
 
-// SaveSSHKeys saves SSH public keys to strings
+// SaveSSHKeys converts ssh.PublicKey objects to strings for persistence
 func SaveSSHKeys(keys []ssh.PublicKey) []string {
 	keyStrs := make([]string, len(keys))
 	for i, k := range keys {
 		keyStrs[i] = string(ssh.MarshalAuthorizedKey(k))
 	}
 	return keyStrs
+}
+
+// RepoPermission represents repository permissions for JSON persistence
+type RepoPermission struct {
+	Name  string            `json:"name"`            // Repository name
+	Path  string            `json:"path"`            // Filesystem path to repository
+	Users map[string]string `json:"users"`           // Username to permission mapping ("r" or "rw")
+}
+
+// LoadRepoPermissions loads repository permission data from a JSON file
+func LoadRepoPermissions(path string) ([]RepoPermission, error) {
+	data, err := os.ReadFile(path)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return nil, nil // No data file exists yet
+		}
+		return nil, fmt.Errorf("failed to read repo permission data: %v", err)
+	}
+
+	if len(data) == 0 {
+		return nil, nil
+	}
+
+	var repos []RepoPermission
+	if err := json.Unmarshal(data, &repos); err != nil {
+		return nil, fmt.Errorf("failed to parse repo permission data: %v", err)
+	}
+
+	return repos, nil
+}
+
+// SaveRepoPermissions persists repository permission data to a JSON file
+func SaveRepoPermissions(path string, repos []RepoPermission) error {
+	jsonData, err := json.MarshalIndent(repos, "", "  ")
+	if err != nil {
+		return fmt.Errorf("failed to serialize repo permission data: %v", err)
+	}
+
+	if err := os.WriteFile(path, jsonData, 0644); err != nil {
+		return fmt.Errorf("failed to save repo permission data: %v", err)
+	}
+
+	return nil
 }

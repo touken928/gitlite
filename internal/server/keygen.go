@@ -10,13 +10,14 @@ import (
 	gossh "golang.org/x/crypto/ssh"
 )
 
+// generateHostKey creates a new Ed25519 SSH host key and saves it to the specified path
 func generateHostKey(path string) (ssh.Signer, error) {
 	_, privateKey, err := ed25519.GenerateKey(rand.Reader)
 	if err != nil {
 		return nil, err
 	}
 
-	// 编码为 PEM
+	// Marshal private key to PEM format
 	pemBlock, err := gossh.MarshalPrivateKey(privateKey, "")
 	if err != nil {
 		return nil, err
